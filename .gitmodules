@@ -1,0 +1,3 @@
+[submodule "TiRPC"]
+	path = TiRPC
+	url = https://github.com/TiEngine/TiRPC.git
