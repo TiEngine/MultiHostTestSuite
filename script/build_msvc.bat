@@ -20,7 +20,7 @@ if "%BUILD_COMPILE%"=="Visual Studio 16 2019" (
 if "%BUILD_BITS%"=="x64" (set BUILD_ARCH_ARG=-A x64) ^
 else (set BUILD_ARCH_ARG=-A Win32)
 ) else (
-if "%BUILD_BITS%"=="x64" (set BUILD_COMPILE=%BUILD_COMPILE% Win64)
+if "%BUILD_BITS%"=="x64" (set BUILD_COMPILE_FULL_NAME=%BUILD_COMPILE_FULL_NAME% Win64)
 )
 
 if exist "TiRPC\build\archive" (goto _tag_build_trace_src)
