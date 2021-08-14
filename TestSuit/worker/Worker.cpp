@@ -60,7 +60,7 @@ private:
 
 int main(int argc, char* argv[])
 {
-    std::unordered_map<std::string, std::string> commands;
+    std::map<std::string, std::string> commands;
 
     commands["ip"] = "127.0.0.1";
     commands["p1"] = "6021";

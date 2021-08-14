@@ -50,7 +50,7 @@ private:
 
 int main(int argc, char* argv[])
 {
-    std::unordered_map<std::string, std::string> commands;
+    std::map<std::string, std::string> commands;
 
     commands["ip"] = "127.0.0.1";
     commands["p1"] = "6021";
@@ -93,7 +93,8 @@ int main(int argc, char* argv[])
                     std::stringstream ss;
                     ss << "===== [RECEIVE RESULT] =====" << std::endl
                        <<               log              << std::endl
-                       << "----------------------------" << std::endl;
+                       << "----------------------------" << std::endl
+                       << std::endl; // Add one more split line.
                     std::cout << ss.str();
                 }
                 logs.clear();
