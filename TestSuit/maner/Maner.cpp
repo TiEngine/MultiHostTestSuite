@@ -52,9 +52,9 @@ int main(int argc, char* argv[])
 {
     std::map<std::string, std::string> commands;
 
-    commands["ip"] = "127.0.0.1";
-    commands["p1"] = "6021";
-    commands["p2"] = "6022";
+    commands["ip"] = "127.0.0.1";   //Maner's IP
+    commands["p1"] = "6021";        //RPC port
+    commands["p2"] = "6022";        //Multicast port
 
     for (int argn = 1; argn < argc; argn++) {
         std::string command = argv[argn];
@@ -112,7 +112,7 @@ int main(int argc, char* argv[])
         if (command.length() > 0) {
             if (command[0] == ':') {
                 bool success = true;
-                command = command.substr(1);
+                // command = command.substr(1);
                 if (rpc.CallFunc("Task", command) !=
                     tirpc::rpc::RpcCallError::Success) {
                     success = false;
