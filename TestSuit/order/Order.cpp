@@ -116,8 +116,7 @@ int main(int argc, char* argv[])
     
     //If no group defined, use first command
     if(groups.size() == 0){
-        std::string group_command = configs["group"] + commands[0];
-        if (rpc.CallFunc("Task", group_command) !=
+        if (rpc.CallFunc("Task", configs["group"], commands[0]) !=
             tirpc::rpc::RpcCallError::Success) {
             std::cout<<"CallFunc Task failed!" << std::endl;
         }
@@ -125,9 +124,7 @@ int main(int argc, char* argv[])
     else
     {
         for(int ind_groups = 0; ind_groups < groups.size(); ind_groups++){
-            std::string group_command = groups[ind_groups] + commands[ind_groups];
-
-            if (rpc.CallFunc("Task", group_command) !=
+            if (rpc.CallFunc("Task", groups[ind_groups], commands[ind_groups]) !=
                 tirpc::rpc::RpcCallError::Success) {
                 std::cout<<"CallFunc Task failed!" << std::endl;
             }

@@ -4,6 +4,7 @@
 #include "TiRPC.hpp"
 
 bool g_loop = true;
+using Group_Cmd = std::pair<std::string, std::string>;
 
 void SignalHandler(int signum)
 {
@@ -24,13 +25,13 @@ public:
         (void)log;
     }
 
-    void Task(const std::string& cmd)
+    void Task(const std::string& group, const std::string& cmd)
     {
         std::lock_guard<std::mutex> locker(mutex);
-        cmds.emplace_back(cmd);
+        cmds.emplace_back(Group_Cmd(group, cmd));
     }
 
-    void SwapCmds(std::vector<std::string>& out)
+    void SwapCmds(std::vector<Group_Cmd>& out)
     {
         std::lock_guard<std::mutex> locker(mutex);
         out.swap(cmds);
@@ -55,7 +56,7 @@ public:
 
 private:
     std::mutex mutex; // for cmds
-    std::vector<std::string> cmds;
+    std::vector<Group_Cmd> cmds;
 } g_worker;
 
 int main(int argc, char* argv[])
@@ -96,7 +97,7 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    std::vector<std::string> cmds;
+    std::vector<Group_Cmd> cmds;
     while (g_loop) {
         g_worker.SwapCmds(cmds);
         if (cmds.size() == 0) {
@@ -107,7 +108,9 @@ int main(int argc, char* argv[])
             if (!g_loop) {
                 break;
             }
-            if(cmd.substr(0,1) != commands["group"] && cmd.substr(0,1) != ":")
+            std::string group = cmd.first;
+            std::string cmd2 = cmd.second;
+            if(group != commands["group"] && group != ":")
             {
                 continue;
             }
@@ -116,7 +119,6 @@ int main(int argc, char* argv[])
             std::time_t startTime = std::chrono::system_clock::to_time_t(start);
 
             system("pwd");
-            std::string cmd2 = cmd.substr(1);
             std::string command = cmd2 + " >" + commands["name"] + "_output.log 2>&1";
             int status = system(command.c_str());
             // If the return value is not -1, it only means that the command line
