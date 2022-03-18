@@ -1,3 +1,8 @@
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <mutex>
 #include <csignal>
 #include <fstream>
@@ -119,8 +124,85 @@ int main(int argc, char* argv[])
             std::time_t startTime = std::chrono::system_clock::to_time_t(start);
 
             system("pwd");
-            std::string command = cmd2 + " >" + commands["name"] + "_output.log 2>&1";
-            int status = system(command.c_str());
+            // std::string command = cmd2 + " >" + commands["name"] + "_output.log 2>&1";
+            // int status = system(command.c_str());
+            int status = 0;
+
+            // remove blank space in head
+            int head = 0;
+            while(cmd2[head] == ' ')
+            {
+                head++;
+            }
+            cmd2 = cmd2.substr(head);
+
+            std::string appPath = cmd2;
+            size_t SpaceEnd = cmd2.length() - 1;
+            size_t SpaceStart = cmd2.find_last_of(' ');
+
+            std::vector<std::string> cmdParam;
+
+            while(SpaceStart != std::string::npos)
+            {
+                while (cmd2[SpaceEnd - 1] == ' ') {
+                    SpaceEnd--;
+                }
+                cmd2 = cmd2.substr(0, SpaceEnd);
+                SpaceStart = cmd2.find_last_of(' ');
+                if(SpaceStart == std::string::npos) {
+                    appPath = cmd2.substr(0, SpaceEnd);
+                }
+                else {
+                    cmdParam.push_back(cmd2.substr(SpaceStart + 1, SpaceEnd - SpaceStart - 1));
+                }
+            }
+
+            int cmdParamSize = cmdParam.size();
+            int paramInd = 0;
+            const int paramSize = 1 + cmdParamSize + 3;
+
+            char * param[paramSize];
+            param[paramInd++] = const_cast<char*>(appPath.c_str());
+
+            for (; paramInd <= cmdParamSize; paramInd++)
+            {
+                param[paramInd] = const_cast<char*>(cmdParam.back().c_str());
+                cmdParam.pop_back();
+            }
+            
+            std::string logPath = std::string(commands["name"] + "_output.log");
+            param[paramInd++] = ">";
+            param[paramInd++] = const_cast<char*>(logPath.c_str());
+            param[paramInd++] = NULL;
+
+            for(int i = 0; i<paramSize;i++)
+            {
+                std::cout<<"param[" << i << "] = " << param[i] <<std::endl;
+            }
+
+            if(fork() == 0){
+                int fd = open(logPath.c_str(), O_RDWR | O_CREAT, 0666);
+                std::cout << "fd = " << fd << std::endl;
+                dup2(fd, 1);
+                dup2(fd, 2);
+                
+                execvp(appPath.c_str(), param);
+                perror("execvp");
+                exit(0);
+            }
+
+            int child_status;
+            wait(&child_status);
+            int retCode = WIFEXITED(child_status);
+            if(retCode){
+                status =  WEXITSTATUS(child_status);
+            }
+            else{
+                // coredump
+                status = -1;
+            }
+
+
             // If the return value is not -1, it only means that the command line
             // successfully triggered and executed, and it does not mean that the
             // command line is executed successfully or the return value of the
