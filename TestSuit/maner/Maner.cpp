@@ -112,8 +112,8 @@ int main(int argc, char* argv[])
         if (command.length() > 0) {
             if (command[0] == ':') {
                 bool success = true;
-                // command = command.substr(1);
-                if (rpc.CallFunc("Task", command) !=
+                command = command.substr(1);
+                if (rpc.CallFunc("Task",  std::string(":"), command) !=
                     tirpc::rpc::RpcCallError::Success) {
                     success = false;
                 }
