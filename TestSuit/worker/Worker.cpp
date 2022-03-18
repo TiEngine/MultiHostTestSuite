@@ -1,3 +1,8 @@
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <mutex>
 #include <csignal>
 #include <fstream>
@@ -109,6 +114,7 @@ int main(int argc, char* argv[])
                 break;
             }
             std::string group = cmd.first;
+            std::string command = cmd.second;
             std::string cmd2 = cmd.second;
             if(group != commands["group"] && group != ":")
             {
@@ -119,8 +125,56 @@ int main(int argc, char* argv[])
             std::time_t startTime = std::chrono::system_clock::to_time_t(start);
 
             system("pwd");
-            std::string command = cmd2 + " >" + commands["name"] + "_output.log 2>&1";
-            int status = system(command.c_str());
+            // std::string command = cmd2 + " >" + commands["name"] + "_output.log 2>&1";
+            // int status = system(command.c_str());
+            int status = 0;
+
+            std::vector<std::string> cmdParam;
+            std::istringstream strCommand(command);
+            std::string out;
+            while (strCommand >> out) {
+                cmdParam.push_back(out);
+            }
+
+            const int paramSize = cmdParam.size() + 1;
+            std::cout << "paramSize = " << paramSize << std::endl;
+
+            char** param = new char* [paramSize];
+
+            for (int paramInd = 0; paramInd < cmdParam.size(); paramInd++)
+            {
+                param[paramInd] = const_cast<char*>(cmdParam[paramInd].c_str());
+                std::cout<<"param[" << paramInd << "] = " << param[paramInd] <<std::endl;
+            }
+            param[paramSize - 1] = NULL;
+            
+            std::string logPath = std::string(commands["name"] + "_output.log");
+
+            if(fork() == 0){
+                system(std::string("rm " + logPath).c_str());
+                int fd = open(logPath.c_str(), O_RDWR | O_CREAT, 0666);
+                std::cout << "fd = " << fd << std::endl;
+                dup2(fd, 1);
+                dup2(fd, 2);
+                
+                execvp(param[0], param);
+                perror("execvp");
+                exit(0);
+            }
+
+            int child_status;
+            wait(&child_status);
+            int retCode = WIFEXITED(child_status);
+            if(retCode){
+                status =  WEXITSTATUS(child_status);
+            }
+            else{
+                // coredump
+                status = -1;
+            }
+            delete[] param;
+
+
             // If the return value is not -1, it only means that the command line
             // successfully triggered and executed, and it does not mean that the
             // command line is executed successfully or the return value of the
