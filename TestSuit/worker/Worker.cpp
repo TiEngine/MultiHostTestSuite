@@ -73,6 +73,7 @@ int main(int argc, char* argv[])
     commands["p2"] = "6022";
     commands["name"] = "worker";    //This worker's name
     commands["group"] = " ";        //This worker's group
+    commands["mode"] = "pipe";      //This worker's work mode, pipe or file
 
     for (int argn = 1; argn < argc; argn++) {
         std::string command = argv[argn];
@@ -102,6 +103,16 @@ int main(int argc, char* argv[])
         return 1;
     }
 
+    int fdPipe[2];
+    if(pipe(fdPipe) < 0) {
+        std::cout << "pipe() failed!" << std::endl;
+        return 1;
+    }
+
+    int getProp = fcntl(fdPipe[0], F_GETFL);
+    fcntl(fdPipe[0], F_SETFL, getProp | O_NONBLOCK);
+
+    char readBuf[1024] = {0};
 
     std::vector<Group_Cmd> cmds;
     while (g_loop) {
@@ -152,11 +163,16 @@ int main(int argc, char* argv[])
             std::string logPath = std::string(commands["name"] + "_output.log");
 
             if(fork() == 0){
-                remove(logPath.c_str());
-                int fd = open(logPath.c_str(), O_RDWR | O_CREAT, 0666);
-                std::cout << "fd = " << fd << std::endl;
-                dup2(fd, 1);
-                dup2(fd, 2);
+                if(commands["mode"] == "file") {
+                    remove(logPath.c_str());
+                    int fd = open(logPath.c_str(), O_RDWR | O_CREAT, 0666);
+                    dup2(fd, 1);
+                    dup2(fd, 2);
+                }
+                else {
+                    dup2(fdPipe[1], 1);
+                    dup2(fdPipe[1], 2);
+                }
                 
                 execvp(param[0], param);
                 perror("execvp");
@@ -175,20 +191,24 @@ int main(int argc, char* argv[])
             }
             delete[] param;
 
-
-            // If the return value is not -1, it only means that the command line
-            // successfully triggered and executed, and it does not mean that the
-            // command line is executed successfully or the return value of the
-            // command line execution.
-            // Due to the differences in the implementation between the Windows
-            // and the Linux, we send the result by using the output.log.
             std::stringstream log;
             log << "COMMAND: `"     << command          << "`, "  // command
                 << "WORKER: `"      << commands["name"] << "`, "  // worker name
                 << "STATUS: "       << status << "." << std::endl // system retv
                 << "START TIME: "   << std::ctime(&startTime) 
-                << "OUTPUT: "       << std::endl                  // output.log
-                << g_worker.ReadFile(commands["name"] + "_output.log");
+                << "OUTPUT: "       << std::endl;                  // output.log
+
+            if(commands["mode"] == "file") {
+                log << g_worker.ReadFile(logPath);
+            }
+            else {
+                int readLength = 0;
+                while((readLength = read(fdPipe[0], readBuf, sizeof(readBuf))) > 0) {
+                    std::string readStr(readBuf, readLength);
+                    log << readStr;
+                }
+            }
+
             if (rpc.CallFunc("Outp", log.str()) !=
                 tirpc::rpc::RpcCallError::Success) {
                 std::cout<<"CallFunc Outp failed!" << std::endl;
