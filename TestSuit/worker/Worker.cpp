@@ -102,6 +102,7 @@ int main(int argc, char* argv[])
         return 1;
     }
 
+
     std::vector<Group_Cmd> cmds;
     while (g_loop) {
         g_worker.SwapCmds(cmds);
@@ -151,7 +152,7 @@ int main(int argc, char* argv[])
             std::string logPath = std::string(commands["name"] + "_output.log");
 
             if(fork() == 0){
-                system(std::string("rm " + logPath).c_str());
+                remove(logPath.c_str());
                 int fd = open(logPath.c_str(), O_RDWR | O_CREAT, 0666);
                 std::cout << "fd = " << fd << std::endl;
                 dup2(fd, 1);
