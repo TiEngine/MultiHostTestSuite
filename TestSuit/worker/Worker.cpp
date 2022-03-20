@@ -1,3 +1,8 @@
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <mutex>
 #include <csignal>
 #include <fstream>
@@ -68,6 +73,7 @@ int main(int argc, char* argv[])
     commands["p2"] = "6022";
     commands["name"] = "worker";    //This worker's name
     commands["group"] = " ";        //This worker's group
+    commands["mode"] = "pipe";      //This worker's work mode, pipe or file
 
     for (int argn = 1; argn < argc; argn++) {
         std::string command = argv[argn];
@@ -97,6 +103,17 @@ int main(int argc, char* argv[])
         return 1;
     }
 
+    int fdPipe[2];
+    if(pipe(fdPipe) < 0) {
+        std::cout << "pipe() failed!" << std::endl;
+        return 1;
+    }
+
+    int getProp = fcntl(fdPipe[0], F_GETFL);
+    fcntl(fdPipe[0], F_SETFL, getProp | O_NONBLOCK);
+
+    char readBuf[1024] = {0};
+
     std::vector<Group_Cmd> cmds;
     while (g_loop) {
         g_worker.SwapCmds(cmds);
@@ -109,6 +126,7 @@ int main(int argc, char* argv[])
                 break;
             }
             std::string group = cmd.first;
+            std::string command = cmd.second;
             std::string cmd2 = cmd.second;
             if(group != commands["group"] && group != ":")
             {
@@ -119,21 +137,78 @@ int main(int argc, char* argv[])
             std::time_t startTime = std::chrono::system_clock::to_time_t(start);
 
             system("pwd");
-            std::string command = cmd2 + " >" + commands["name"] + "_output.log 2>&1";
-            int status = system(command.c_str());
-            // If the return value is not -1, it only means that the command line
-            // successfully triggered and executed, and it does not mean that the
-            // command line is executed successfully or the return value of the
-            // command line execution.
-            // Due to the differences in the implementation between the Windows
-            // and the Linux, we send the result by using the output.log.
+            // std::string command = cmd2 + " >" + commands["name"] + "_output.log 2>&1";
+            // int status = system(command.c_str());
+            int status = 0;
+
+            std::vector<std::string> cmdParam;
+            std::istringstream strCommand(command);
+            std::string out;
+            while (strCommand >> out) {
+                cmdParam.push_back(out);
+            }
+
+            const int paramSize = cmdParam.size() + 1;
+            std::cout << "paramSize = " << paramSize << std::endl;
+
+            char** param = new char* [paramSize];
+
+            for (int paramInd = 0; paramInd < cmdParam.size(); paramInd++)
+            {
+                param[paramInd] = const_cast<char*>(cmdParam[paramInd].c_str());
+                std::cout<<"param[" << paramInd << "] = " << param[paramInd] <<std::endl;
+            }
+            param[paramSize - 1] = NULL;
+            
+            std::string logPath = std::string(commands["name"] + "_output.log");
+
+            if(fork() == 0){
+                if(commands["mode"] == "file") {
+                    remove(logPath.c_str());
+                    int fd = open(logPath.c_str(), O_RDWR | O_CREAT, 0666);
+                    dup2(fd, 1);
+                    dup2(fd, 2);
+                }
+                else {
+                    dup2(fdPipe[1], 1);
+                    dup2(fdPipe[1], 2);
+                }
+                
+                execvp(param[0], param);
+                perror("execvp");
+                exit(0);
+            }
+
+            int child_status;
+            wait(&child_status);
+            int retCode = WIFEXITED(child_status);
+            if(retCode){
+                status =  WEXITSTATUS(child_status);
+            }
+            else{
+                // coredump
+                status = -1;
+            }
+            delete[] param;
+
             std::stringstream log;
             log << "COMMAND: `"     << command          << "`, "  // command
                 << "WORKER: `"      << commands["name"] << "`, "  // worker name
                 << "STATUS: "       << status << "." << std::endl // system retv
                 << "START TIME: "   << std::ctime(&startTime) 
-                << "OUTPUT: "       << std::endl                  // output.log
-                << g_worker.ReadFile(commands["name"] + "_output.log");
+                << "OUTPUT: "       << std::endl;                  // output.log
+
+            if(commands["mode"] == "file") {
+                log << g_worker.ReadFile(logPath);
+            }
+            else {
+                int readLength = 0;
+                while((readLength = read(fdPipe[0], readBuf, sizeof(readBuf))) > 0) {
+                    std::string readStr(readBuf, readLength);
+                    log << readStr;
+                }
+            }
+
             if (rpc.CallFunc("Outp", log.str()) !=
                 tirpc::rpc::RpcCallError::Success) {
                 std::cout<<"CallFunc Outp failed!" << std::endl;
