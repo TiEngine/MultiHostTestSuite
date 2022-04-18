@@ -47,6 +47,7 @@ int main(int argc, char* argv[])
     configs["command"] = "";
     configs["output"] = "output.log";
     configs["group"] = ":";
+    configs["env"] = "";
 
     std::vector<std::string> commands;
     std::vector<std::string> groups;
@@ -73,6 +74,12 @@ int main(int argc, char* argv[])
         else if(key == "env"){
             envs.push_back(configs[key]);
         }
+    }
+    if(commands.size() > groups.size()) {
+        groups.push_back(" ");
+    }
+    if(commands.size() > envs.size()) {
+        envs.push_back("");
     }
 
     if(configs["command"] == "") {
@@ -126,13 +133,13 @@ int main(int argc, char* argv[])
 
     for(int ind_commands = 0; ind_commands < commands.size(); ind_commands++){
         if (groups[ind_commands] == "all") {
-            if (rpc.CallFunc("Task", std::string(":"), commands[ind_commands]) !=
+            if (rpc.CallFunc("Task", commands[ind_commands], std::string(":"), envs[ind_commands]) !=
                 tirpc::rpc::RpcCallError::Success) {
                 std::cout<<"CallFunc Task failed!" << std::endl;
             }
         }
         else {
-            if (rpc.CallFunc("Task", groups[ind_commands], commands[ind_commands]) !=
+            if (rpc.CallFunc("Task", commands[ind_commands], groups[ind_commands], envs[ind_commands]) !=
                 tirpc::rpc::RpcCallError::Success) {
                 std::cout<<"CallFunc Task failed!" << std::endl;
             }
