@@ -45,13 +45,14 @@ int main(int argc, char* argv[])
     configs["workers"] = "1";  // default worker count: 1
     configs["timeout"] = "300"; // default timeout: 300s
     configs["command"] = "";
-    configs["output"] = "output.log";
+    configs["output"] = "";
     configs["group"] = ":";
     configs["env"] = "";
 
     std::vector<std::string> commands;
     std::vector<std::string> groups;
     std::vector<std::string> envs;
+    bool isQuiet = true;
     
     for (int argn = 1; argn < argc; argn++) {
         std::string config = argv[argn];
@@ -60,19 +61,15 @@ int main(int argc, char* argv[])
         std::string value = config.substr(split + 1);
         configs[key] = value;
         if(key == "command"){
-            if(commands.size() > groups.size()) {
-                groups.push_back(" ");
-            }
-            if(commands.size() > envs.size()) {
-                envs.push_back("");
-            }
             commands.push_back(configs[key]);
+            groups.push_back(" ");
+            envs.push_back("");
         }
         else if(key == "group"){
-            groups.push_back(configs[key]);
+            groups[groups.size() - 1] = configs[key];
         }
         else if(key == "env"){
-            envs.push_back(configs[key]);
+            envs[envs.size() - 1] = configs[key];
         }
     }
     if(commands.size() > groups.size()) {
@@ -85,6 +82,15 @@ int main(int argc, char* argv[])
     if(configs["command"] == "") {
         std::cout<<"Need command!" << std::endl;
         return -1;
+    }
+
+    if(configs["output"] == "") {
+        std::cout<<"Run order in vebosity mode! Output file is output.log!" << std::endl;
+        configs["output"] = "output.log";
+        isQuiet = false;
+    }
+    else {
+        std::cout<<"Run order in quiet mode! See details in output file..." << std::endl;
     }
     
     if(configs["output"].find(".log") == configs["output"].npos)
@@ -156,7 +162,9 @@ int main(int argc, char* argv[])
                     <<               log              << std::endl
                     << "----------------------------" << std::endl
                     << std::endl; // Add one more split line.
-                std::cout << ss.str();
+                if (!isQuiet) {
+                    std::cout << ss.str();
+                }
                 ofs << std::endl << log;
 
                 worker_count++;
