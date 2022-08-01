@@ -227,7 +227,7 @@ int main(int argc, char* argv[])
                 }
 
                 int child_status;
-                pid_t exitPid = waitpid(-1, &child_status, WNOHANG);
+                pid_t exitPid = waitpid(childPid, &child_status, WNOHANG);
 
                 if (exitPid) {
                     int retCode = WIFEXITED(child_status);

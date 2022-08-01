@@ -124,13 +124,19 @@ int main(int argc, char* argv[])
         configs["command"].substr(head, tail - head) + ".log";
     }
 
-    int timeout = 0;
+    int maxTimeout = 0;
+    int maxDelay = 0;
     for (auto& time : timeouts) {
-        if (time > timeout) {
-            timeout = time;
+        if (time > maxTimeout) {
+            maxTimeout = time;
         }
     }
-    timeout += 10; // order timeout = max_timeout + 10s
+    for (auto& delay : delays) {
+        if (delay > maxDelay) {
+            maxDelay = delay;
+        }
+    }
+    int timeout = maxTimeout + maxDelay / 1000 + 10; // order timeout = maxTimeout + maxDelay + 10s
 
     int workers = atoi(configs["workers"].c_str());
     int worker_count = 0;
