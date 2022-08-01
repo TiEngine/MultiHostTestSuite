@@ -42,16 +42,19 @@ int main(int argc, char* argv[])
     configs["ip"] = "127.0.0.1";
     configs["p1"] = "6021";
     configs["p2"] = "6022";
-    configs["workers"] = "1";  // default worker count: 1
+    configs["workers"] = "1";   // default worker count: 1
     configs["timeout"] = "300"; // default timeout: 300s
     configs["command"] = "";
     configs["output"] = "";
     configs["group"] = ":";
     configs["env"] = "";
+    configs["delay"] = "0";     // default delay time: 0ms
 
     std::vector<std::string> commands;
     std::vector<std::string> groups;
     std::vector<std::string> envs;
+    std::vector<int> timeouts;
+    std::vector<int> delays;
     bool isQuiet = true;
     
     for (int argn = 1; argn < argc; argn++) {
@@ -64,12 +67,20 @@ int main(int argc, char* argv[])
             commands.push_back(configs[key]);
             groups.push_back(" ");
             envs.push_back("");
+            timeouts.push_back(300);
+            delays.push_back(0);
         }
         else if(key == "group"){
             groups[groups.size() - 1] = configs[key];
         }
         else if(key == "env"){
             envs[envs.size() - 1] = configs[key];
+        }
+        else if (key == "timeout") {
+            timeouts[timeouts.size() - 1] = std::stoi(configs[key]);
+        }
+        else if (key == "delay") {
+            delays[delays.size() - 1] = std::stoi(configs[key]);
         }
     }
     if(commands.size() > groups.size()) {
@@ -113,7 +124,14 @@ int main(int argc, char* argv[])
         configs["command"].substr(head, tail - head) + ".log";
     }
 
-    int timeout = atoi(configs["timeout"].c_str());
+    int timeout = 0;
+    for (auto& time : timeouts) {
+        if (time > timeout) {
+            timeout = time;
+        }
+    }
+    timeout += 10; // order timeout = max_timeout + 10s
+
     int workers = atoi(configs["workers"].c_str());
     int worker_count = 0;
 
@@ -138,17 +156,13 @@ int main(int argc, char* argv[])
 
 
     for(int ind_commands = 0; ind_commands < commands.size(); ind_commands++){
+        std::string groupName = groups[ind_commands];
         if (groups[ind_commands] == "all") {
-            if (rpc.CallFunc("Task", commands[ind_commands], std::string(":"), envs[ind_commands]) !=
-                tirpc::rpc::RpcCallError::Success) {
-                std::cout<<"CallFunc Task failed!" << std::endl;
-            }
+            groupName = std::string(":");
         }
-        else {
-            if (rpc.CallFunc("Task", commands[ind_commands], groups[ind_commands], envs[ind_commands]) !=
-                tirpc::rpc::RpcCallError::Success) {
-                std::cout<<"CallFunc Task failed!" << std::endl;
-            }
+        if (rpc.CallFunc("Task", commands[ind_commands], groupName, envs[ind_commands], 
+            delays[ind_commands], timeouts[ind_commands]) != tirpc::rpc::RpcCallError::Success) {
+            std::cout << "CallFunc Task failed!" << std::endl;
         }
     }
 

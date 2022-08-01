@@ -10,7 +10,13 @@
 
 bool g_loop = true;
 // using Group_Cmd = std::pair<std::string, std::string>;
-using Env_Group_Cmd = std::tuple<std::string, std::string, std::string>;
+struct Command {
+    std::string command;
+    std::string group;
+    std::string env;
+    int delay;
+    int timeout;
+};
 
 void SignalHandler(int signum)
 {
@@ -31,13 +37,14 @@ public:
         (void)log;
     }
 
-    void Task(const std::string& cmd, const std::string& group, const std::string& env)
+    void Task(const std::string& cmd, const std::string& group, const std::string& env, int delay, int timeout)
     {
         std::lock_guard<std::mutex> locker(mutex);
-        cmds.emplace_back(std::make_tuple(cmd, group, env));
+        Command command = { cmd, group, env, delay, timeout };
+        cmds.emplace_back(command);
     }
 
-    void SwapCmds(std::vector<Env_Group_Cmd>& out)
+    void SwapCmds(std::vector<Command>& out)
     {
         std::lock_guard<std::mutex> locker(mutex);
         out.swap(cmds);
@@ -62,7 +69,7 @@ public:
 
 private:
     std::mutex mutex; // for cmds
-    std::vector<Env_Group_Cmd> cmds;
+    std::vector<Command> cmds;
 } g_worker;
 
 int main(int argc, char* argv[])
@@ -93,7 +100,6 @@ int main(int argc, char* argv[])
     }
     std::cout << "------------------------------------" << std::endl;
 
-    signal(SIGINT, SignalHandler);
 
     tirpc::RpcAsyncBroadcast rpc;
     rpc.BindFunc("Outp", &Worker::Outp, g_worker);
@@ -115,7 +121,7 @@ int main(int argc, char* argv[])
 
     char readBuf[1024] = {0};
 
-    std::vector<Env_Group_Cmd> cmds;
+    std::vector<Command> cmds;
     while (g_loop) {
         g_worker.SwapCmds(cmds);
         if (cmds.size() == 0) {
@@ -127,9 +133,19 @@ int main(int argc, char* argv[])
                 break;
             }
 
-            std::string command = std::get<0>(cmd);
-            std::string group = std::get<1>(cmd);
-            std::string env = std::get<2>(cmd);
+            std::string command = cmd.command;
+            std::string group = cmd.group;
+            std::string env = cmd.env;
+            int delayTime = cmd.delay;
+            int timeout = cmd.timeout;
+            if (delayTime < 0) {
+                std::cout << "delay(" << delayTime << ") is less than 0, correct it to 0ms." << std::endl;
+                delayTime = 0;
+            }
+            if (timeout < 0) {
+                std::cout << "timeout(" << timeout << ") is less than 0, correct it to 300s." << std::endl;
+                timeout = 300;
+            }
             if(group != commands["group"] && group != ":")
             {
                 continue;
@@ -177,7 +193,8 @@ int main(int argc, char* argv[])
             
             std::string logPath = std::string(commands["name"] + "_output.log");
 
-            if(fork() == 0){
+            pid_t childPid = fork();
+            if(childPid == 0){
                 if(commands["mode"] == "file") {
                     remove(logPath.c_str());
                     int fd = open(logPath.c_str(), O_RDWR | O_CREAT, 0666);
@@ -189,20 +206,40 @@ int main(int argc, char* argv[])
                     dup2(fdPipe[1], 2);
                 }
                 
+                std::this_thread::sleep_for(std::chrono::milliseconds(delayTime));
                 execve(param[0], param, commandEnv);
                 perror("execvp");
                 exit(0);
             }
 
-            int child_status;
-            wait(&child_status);
-            int retCode = WIFEXITED(child_status);
-            if(retCode){
-                status =  WEXITSTATUS(child_status);
-            }
-            else{
-                // coredump
-                status = -1;
+            signal(SIGINT, SignalHandler);
+            auto begin = std::chrono::system_clock::now();
+            auto end = std::chrono::system_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::seconds>(end - begin);
+
+            while (duration.count() <= timeout) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(200)); // 5Hz
+                end = std::chrono::system_clock::now();
+                duration = std::chrono::duration_cast<std::chrono::seconds>(end - begin);
+
+                if (duration.count() > timeout) {
+                    kill(childPid, SIGINT);
+                }
+
+                int child_status;
+                pid_t exitPid = waitpid(-1, &child_status, WNOHANG);
+
+                if (exitPid) {
+                    int retCode = WIFEXITED(child_status);
+                    if (retCode) {
+                        status = WEXITSTATUS(child_status);
+                    }
+                    else {
+                        // coredump
+                        status = -1;
+                    }
+                    break;
+                }
             }
             delete[] param;
 

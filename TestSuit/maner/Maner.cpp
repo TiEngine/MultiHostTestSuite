@@ -30,7 +30,7 @@ public:
         logs.emplace_back(log);
     }
 
-    void Task(const std::string& cmd, const std::string& group, const std::string& env)
+    void Task(const std::string& cmd, const std::string& group, const std::string& env, int delay, int timeout)
     {
         // Maner's Task does not do anything, Maner
         // only distributes the order to the Worker.
