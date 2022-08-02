@@ -136,7 +136,7 @@ int main(int argc, char* argv[])
             maxDelay = delay;
         }
     }
-    int timeout = maxTimeout + maxDelay / 1000 + 10; // order timeout = maxTimeout + maxDelay + 10s
+    int timeout = maxTimeout + maxDelay / 1000 + 10;
 
     int workers = atoi(configs["workers"].c_str());
     int worker_count = 0;
@@ -161,13 +161,13 @@ int main(int argc, char* argv[])
     }
 
 
-    for(int ind_commands = 0; ind_commands < commands.size(); ind_commands++){
-        std::string groupName = groups[ind_commands];
-        if (groups[ind_commands] == "all") {
+    for(int ind = 0; ind < commands.size(); ind++){
+        std::string groupName = groups[ind];
+        if (groups[ind] == "all") {
             groupName = std::string(":");
         }
-        if (rpc.CallFunc("Task", commands[ind_commands], groupName, envs[ind_commands], 
-            delays[ind_commands], timeouts[ind_commands]) != tirpc::rpc::RpcCallError::Success) {
+        if (rpc.CallFunc("Task", commands[ind], groupName, envs[ind], 
+            delays[ind], timeouts[ind]) != tirpc::rpc::RpcCallError::Success) {
             std::cout << "CallFunc Task failed!" << std::endl;
         }
     }
