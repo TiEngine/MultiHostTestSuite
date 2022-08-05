@@ -42,14 +42,20 @@ int main(int argc, char* argv[])
     configs["ip"] = "127.0.0.1";
     configs["p1"] = "6021";
     configs["p2"] = "6022";
-    configs["workers"] = "1";  // default worker count: 1
+    configs["workers"] = "1";   // default worker count: 1
     configs["timeout"] = "300"; // default timeout: 300s
     configs["command"] = "";
-    configs["output"] = "output.log";
+    configs["output"] = "";
     configs["group"] = ":";
+    configs["env"] = "";
+    configs["delay"] = "0";     // default delay time: 0ms
 
     std::vector<std::string> commands;
     std::vector<std::string> groups;
+    std::vector<std::string> envs;
+    std::vector<int> timeouts;
+    std::vector<int> delays;
+    bool isQuiet = true;
     
     for (int argn = 1; argn < argc; argn++) {
         std::string config = argv[argn];
@@ -59,15 +65,43 @@ int main(int argc, char* argv[])
         configs[key] = value;
         if(key == "command"){
             commands.push_back(configs[key]);
+            groups.push_back(" ");
+            envs.push_back("");
+            timeouts.push_back(300);
+            delays.push_back(0);
         }
-        if(key == "group"){
-            groups.push_back(configs[key]);
+        else if(key == "group"){
+            groups[groups.size() - 1] = configs[key];
         }
+        else if(key == "env"){
+            envs[envs.size() - 1] = configs[key];
+        }
+        else if (key == "timeout") {
+            timeouts[timeouts.size() - 1] = std::stoi(configs[key]);
+        }
+        else if (key == "delay") {
+            delays[delays.size() - 1] = std::stoi(configs[key]);
+        }
+    }
+    if(commands.size() > groups.size()) {
+        groups.push_back(" ");
+    }
+    if(commands.size() > envs.size()) {
+        envs.push_back("");
     }
 
     if(configs["command"] == "") {
         std::cout<<"Need command!" << std::endl;
         return -1;
+    }
+
+    if(configs["output"] == "") {
+        std::cout<<"Run order in vebosity mode! Output file is output.log!" << std::endl;
+        configs["output"] = "output.log";
+        isQuiet = false;
+    }
+    else {
+        std::cout<<"Run order in quiet mode! See details in output file..." << std::endl;
     }
     
     if(configs["output"].find(".log") == configs["output"].npos)
@@ -90,7 +124,20 @@ int main(int argc, char* argv[])
         configs["command"].substr(head, tail - head) + ".log";
     }
 
-    int timeout = atoi(configs["timeout"].c_str());
+    int maxTimeout = 0;
+    int maxDelay = 0;
+    for (auto& time : timeouts) {
+        if (time > maxTimeout) {
+            maxTimeout = time;
+        }
+    }
+    for (auto& delay : delays) {
+        if (delay > maxDelay) {
+            maxDelay = delay;
+        }
+    }
+    int timeout = maxTimeout + maxDelay / 1000 + 10;
+
     int workers = atoi(configs["workers"].c_str());
     int worker_count = 0;
 
@@ -113,21 +160,15 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    
-    //If no group defined, use first command
-    if(groups.size() == 0){
-        if (rpc.CallFunc("Task", configs["group"], commands[0]) !=
-            tirpc::rpc::RpcCallError::Success) {
-            std::cout<<"CallFunc Task failed!" << std::endl;
+
+    for(int ind = 0; ind < commands.size(); ind++){
+        std::string groupName = groups[ind];
+        if (groups[ind] == "all") {
+            groupName = std::string(":");
         }
-    }
-    else
-    {
-        for(int ind_groups = 0; ind_groups < groups.size(); ind_groups++){
-            if (rpc.CallFunc("Task", groups[ind_groups], commands[ind_groups]) !=
-                tirpc::rpc::RpcCallError::Success) {
-                std::cout<<"CallFunc Task failed!" << std::endl;
-            }
+        if (rpc.CallFunc("Task", commands[ind], groupName, envs[ind], 
+            delays[ind], timeouts[ind]) != tirpc::rpc::RpcCallError::Success) {
+            std::cout << "CallFunc Task failed!" << std::endl;
         }
     }
 
@@ -141,7 +182,9 @@ int main(int argc, char* argv[])
                     <<               log              << std::endl
                     << "----------------------------" << std::endl
                     << std::endl; // Add one more split line.
-                std::cout << ss.str();
+                if (!isQuiet) {
+                    std::cout << ss.str();
+                }
                 ofs << std::endl << log;
 
                 worker_count++;
