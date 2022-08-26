@@ -54,7 +54,7 @@ echo =================================================
 echo Building MultiHostTestSuit...
 mkdir -p build/solution
 cd build/solution
-cmake ../../TestSuit
+cmake -DCMAKE_TOOLCHAIN_FILE=${TOP_PATH}/cmake/qnx.cmake ../../TestSuit
 cmake --build . --config ${BUILD_TYPE}
 cd ../..
 
