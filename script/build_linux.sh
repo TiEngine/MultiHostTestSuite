@@ -54,7 +54,7 @@ echo =================================================
 echo Building MultiHostTestSuit...
 mkdir -p build/solution
 cd build/solution
-if [ ${BUILD_QNX} = "ON" ]
+if [ "${BUILD_QNX}" = "ON" ]
 then
     TOOLCHAIN_FILE=${TOP_PATH}/cmake/qnx.cmake
 fi

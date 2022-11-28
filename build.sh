@@ -20,7 +20,7 @@ echo - RUN_MODE: ${RUN_MODE}
 echo - BUILD_TYPE: ${BUILD_TYPE}
 echo - BUILD_BITS: ${BUILD_BITS}
 
-if [ ${BUILD_QNX} = "ON" ] ; then
+if [ "${BUILD_QNX}" = "ON" ] ; then
     export BUILD_QNX=${BUILD_QNX}
 fi
 

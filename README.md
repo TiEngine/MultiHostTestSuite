@@ -85,6 +85,21 @@ mhts_order ip=192.168.10.54 command="df -h" workers=2
 | 自动化脚本好维护           | 需要提前部署服务 |
 | 支持跨平台                 |                  |
 
+## 编译打包
+
+编译Linux-x86_64/aarch64版本（在同平台设备上）：
+
+```
+bash build.sh
+```
+
+编译QNX-aarch64版本：
+
+```
+source /home/dds-qnx/qnx710/qnxsdp-env.sh
+bash ./build.sh ON linux Release aarch64
+```
+
 
 
 ## V1.0——ChangeLog
@@ -125,7 +140,6 @@ order修改timeout配置项含义，具体见简介。
   - maner调试功能`:`有问题。
 - features
   - order增加配置项commandType，实现执行命令行，具体见简介。
-
 
 `实现order下发cmd类型的指令`
 
