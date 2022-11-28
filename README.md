@@ -34,13 +34,14 @@ order用于向worker下发指令，等待所有的worker执行完成并返回结
 * ip: 指定maner所在的IP地址，默认127.0.0.1。
 * p1: RPC端口，默认6021。
 * p2: Multicast端口，默认6022。
-* command: 需要下发的指令。
-* env：指定应用程序运行时环境变量，如env="LD_PRELOAD=~/DDS/lib/libddsc.so;LD_LIBRARY_PATH=xxx"，多个环境变量之间使用 `;`隔开。
-* group: 与command配合使用，一个command对应一个group。若未指定group，则只有默认group的worker会执行指令。若指定group为**all**，则所有的worker都会执行该指令。
+* command：需要下发的指令。
+* commandType：指令的类型，与command配合使用，有两种类型，命令行：cmd，可执行程序：exe，默认为exe；maner上使用:进行调试时，为cmd类型。
+* env：应用程序运行时环境变量，如env="LD_PRELOAD=~/DDS/lib/libddsc.so;LD_LIBRARY_PATH=xxx"，多个环境变量之间使用 `;`隔开。
+* timeout: command的执行超时时间，与command配合使用，默认300s，一个command对应一个timeout。如果在指定时间内order没有退出，则worker会向所有子进程发送SIGINT信号。**该配置项仅作用于commandType=exe的command。**
+* delay：command的延迟执行时间，与command配合使用，单位毫秒，默认0毫秒。
+* group: command的执行group，与command配合使用。若未指定group，则只有默认group的worker会执行指令。若指定group为**all**，则所有的worker都会执行该指令。
 * output: 存放所有worker执行结果的log文件。默认output.log。若指定output，则使用**安静模式**，不在控制台打印执行结果；否则将在控制台打印执行结果，且将结果保存在默认文件output.log中。
 * workers: 执行指令的worker数量，该参数用于控制order在收到指定workers数量的结果才退出。默认1。
-* timeout: command的执行超时时间，默认300s，与command配合使用，一个command对应一个timeout。如果在指定时间内order没有退出，则worker会向所有子进程发送SIGINT信号。
-* delay：command的延迟执行时间，单位毫秒，默认0毫秒。一个command对应一个delay。
 
 ## 使用场景举例
 
@@ -117,3 +118,14 @@ order增加配置项delay，实现延迟执行子进程，具体见简介；
 order修改timeout配置项含义，具体见简介。
 
 `f77daa36eb6a8826ebc670cd630cab892e2607ac`
+
+## V1.4——ChangeLog
+
+- bug fix
+  - maner调试功能`:`有问题。
+- features
+  - order增加配置项commandType，实现执行命令行，具体见简介。
+
+
+`实现order下发cmd类型的指令`
+
