@@ -113,7 +113,7 @@ int main(int argc, char* argv[])
             if (command[0] == ':') {
                 bool success = true;
                 command = command.substr(1);
-                if (rpc.CallFunc("Task", command, std::string(":"), std::string("")) !=
+                if (rpc.CallFunc("Task", command, std::string(":"), std::string(""), 0, 30) !=
                     tirpc::rpc::RpcCallError::Success) {
                     success = false;
                 }
