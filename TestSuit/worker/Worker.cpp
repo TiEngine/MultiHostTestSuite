@@ -12,6 +12,7 @@ bool g_loop = true;
 // using Group_Cmd = std::pair<std::string, std::string>;
 struct Command {
     std::string command;
+    std::string commandType;
     std::string group;
     std::string env;
     int delay;
@@ -37,10 +38,10 @@ public:
         (void)log;
     }
 
-    void Task(const std::string& cmd, const std::string& group, const std::string& env, int delay, int timeout)
+    void Task(const std::string& cmd, const std::string& cmdType, const std::string& group, const std::string& env, int delay, int timeout)
     {
         std::lock_guard<std::mutex> locker(mutex);
-        Command command = { cmd, group, env, delay, timeout };
+        Command command = { cmd, cmdType, group, env, delay, timeout };
         cmds.emplace_back(command);
     }
 
@@ -100,6 +101,7 @@ int main(int argc, char* argv[])
     }
     std::cout << "------------------------------------" << std::endl;
 
+    signal(SIGINT, SignalHandler);
 
     tirpc::RpcAsyncBroadcast rpc;
     rpc.BindFunc("Outp", &Worker::Outp, g_worker);
@@ -134,6 +136,7 @@ int main(int argc, char* argv[])
             }
 
             std::string command = cmd.command;
+            std::string commandType = cmd.commandType;
             std::string group = cmd.group;
             std::string env = cmd.env;
             int delayTime = cmd.delay;
@@ -159,89 +162,113 @@ int main(int argc, char* argv[])
             // std::string command = cmd2 + " >" + commands["name"] + "_output.log 2>&1";
             // int status = system(command.c_str());
             int status = 0;
-
-            std::vector<std::string> cmdParam;
-            std::vector<std::string> cmdEnv;
-            std::istringstream strCommand(command);
-            std::istringstream strCommandEnv(env);
-            std::string out;
-            while (strCommand >> out) {
-                cmdParam.push_back(out);
-            }
-            //split envs by ';'
-            while (getline(strCommandEnv, out, ';')) {
-                cmdEnv.push_back(out);
-            }
-
-            const int paramSize = cmdParam.size() + 1;
-            const int envSize = cmdEnv.size() + 1;
-
-            char** param = new char* [paramSize];
-            char** commandEnv = new char* [envSize];
-
-            for (int paramInd = 0; paramInd < paramSize - 1; paramInd++)
-            {
-                param[paramInd] = const_cast<char*>(cmdParam[paramInd].c_str());
-            }
-            param[paramSize - 1] = NULL;
-
-            for (int envInd = 0; envInd < envSize - 1; envInd++)
-            {
-                commandEnv[envInd] = const_cast<char*>(cmdEnv[envInd].c_str());
-            }
-            commandEnv[envSize - 1] = NULL;
-            
+            int bakFd1, bakFd2, newFd1, newFd2 = 0;
+            int fd = 0;
             std::string logPath = std::string(commands["name"] + "_output.log");
 
-            pid_t childPid = fork();
-            if(childPid == 0){
-                if(commands["mode"] == "file") {
-                    remove(logPath.c_str());
-                    int fd = open(logPath.c_str(), O_RDWR | O_CREAT, 0666);
-                    dup2(fd, 1);
-                    dup2(fd, 2);
+            if (commandType == "exe") {
+                std::vector<std::string> cmdParam;
+                std::vector<std::string> cmdEnv;
+                std::istringstream strCommand(command);
+                std::istringstream strCommandEnv(env);
+                std::string out;
+                while (strCommand >> out) {
+                    cmdParam.push_back(out);
                 }
-                else {
-                    dup2(fdPipe[1], 1);
-                    dup2(fdPipe[1], 2);
-                }
-                
-                std::this_thread::sleep_for(std::chrono::milliseconds(delayTime));
-                execve(param[0], param, commandEnv);
-                perror("execvp");
-                exit(0);
-            }
-
-            signal(SIGINT, SignalHandler);
-            auto begin = std::chrono::system_clock::now();
-            auto end = std::chrono::system_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::seconds>(end - begin);
-
-            while (duration.count() <= timeout) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(200)); // 5Hz
-                end = std::chrono::system_clock::now();
-                duration = std::chrono::duration_cast<std::chrono::seconds>(end - begin);
-
-                if (duration.count() > timeout) {
-                    kill(childPid, SIGINT);
+                //split envs by ';'
+                while (getline(strCommandEnv, out, ';')) {
+                    cmdEnv.push_back(out);
                 }
 
-                int child_status;
-                pid_t exitPid = waitpid(childPid, &child_status, WNOHANG);
+                const int paramSize = cmdParam.size() + 1;
+                const int envSize = cmdEnv.size() + 1;
 
-                if (exitPid) {
-                    int retCode = WIFEXITED(child_status);
-                    if (retCode) {
-                        status = WEXITSTATUS(child_status);
+                char** param = new char* [paramSize];
+                char** commandEnv = new char* [envSize];
+
+                for (int paramInd = 0; paramInd < paramSize - 1; paramInd++)
+                {
+                    param[paramInd] = const_cast<char*>(cmdParam[paramInd].c_str());
+                }
+                param[paramSize - 1] = NULL;
+
+                for (int envInd = 0; envInd < envSize - 1; envInd++)
+                {
+                    commandEnv[envInd] = const_cast<char*>(cmdEnv[envInd].c_str());
+                }
+                commandEnv[envSize - 1] = NULL;
+
+                pid_t childPid = fork();
+                if(childPid == 0){
+                    if(commands["mode"] == "file") {
+                        remove(logPath.c_str());
+                        fd = open(logPath.c_str(), O_RDWR | O_CREAT, 0666);
+                        dup2(fd, 1);
+                        dup2(fd, 2);
                     }
                     else {
-                        // coredump
-                        status = -1;
+                        dup2(fdPipe[1], 1);
+                        dup2(fdPipe[1], 2);
                     }
-                    break;
+                    
+                    std::this_thread::sleep_for(std::chrono::milliseconds(delayTime));
+                    execve(param[0], param, commandEnv);
+                    perror("execvp");
+                    exit(0);
                 }
+
+                auto begin = std::chrono::system_clock::now();
+                auto end = std::chrono::system_clock::now();
+                auto duration = std::chrono::duration_cast<std::chrono::seconds>(end - begin);
+
+                while (duration.count() <= timeout) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(200)); // 5Hz
+                    end = std::chrono::system_clock::now();
+                    duration = std::chrono::duration_cast<std::chrono::seconds>(end - begin);
+
+                    if (duration.count() > timeout) {
+                        kill(childPid, SIGINT);
+                    }
+
+                    int child_status;
+                    pid_t exitPid = waitpid(childPid, &child_status, WNOHANG);
+
+                    if (exitPid) {
+                        int retCode = WIFEXITED(child_status);
+                        if (retCode) {
+                            status = WEXITSTATUS(child_status);
+                        }
+                        else {
+                            // coredump
+                            status = -1;
+                        }
+                        break;
+                    }
+                }
+                delete[] param;
             }
-            delete[] param;
+            else {
+                if(commands["mode"] == "file") {
+                    remove(logPath.c_str());
+                    fd = open(logPath.c_str(), O_RDWR | O_CREAT, 0666);
+                    bakFd1 = dup(STDOUT_FILENO);
+                    bakFd2 = dup(STDERR_FILENO);
+                    newFd1 = dup2(fd, STDOUT_FILENO);
+                    newFd2 = dup2(fd, STDERR_FILENO);
+                }
+                else {
+                    bakFd1 = dup(STDOUT_FILENO);
+                    bakFd2 = dup(STDERR_FILENO);
+                    newFd1 = dup2(fdPipe[1], STDOUT_FILENO);
+                    newFd2 = dup2(fdPipe[1], STDERR_FILENO);
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(delayTime));
+                status = system(command.c_str());
+
+                // resume stdout and stderr
+                dup2(bakFd1, newFd1);
+                dup2(bakFd2, newFd2);
+            }
 
             std::stringstream log;
             log << "COMMAND: `"     << command          << "`, "  // command
@@ -252,6 +279,7 @@ int main(int argc, char* argv[])
 
             if(commands["mode"] == "file") {
                 log << g_worker.ReadFile(logPath);
+                close(fd);
             }
             else {
                 int readLength = 0;

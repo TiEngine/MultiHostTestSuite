@@ -30,7 +30,7 @@ public:
         logs.emplace_back(log);
     }
 
-    void Task(const std::string& cmd, const std::string& group, const std::string& env, int delay, int timeout)
+    void Task(const std::string& cmd, const std::string& cmdType, const std::string& group, const std::string& env, int delay, int timeout)
     {
         // Maner's Task does not do anything, Maner
         // only distributes the order to the Worker.
@@ -113,7 +113,7 @@ int main(int argc, char* argv[])
             if (command[0] == ':') {
                 bool success = true;
                 command = command.substr(1);
-                if (rpc.CallFunc("Task", command, std::string(":"), std::string("")) !=
+                if (rpc.CallFunc("Task", command, std::string("cmd"), std::string(":"), std::string(""), 0, 30) !=
                     tirpc::rpc::RpcCallError::Success) {
                     success = false;
                 }

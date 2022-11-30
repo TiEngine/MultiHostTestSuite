@@ -54,7 +54,11 @@ echo =================================================
 echo Building MultiHostTestSuit...
 mkdir -p build/solution
 cd build/solution
-cmake ../../TestSuit
+if [ "${BUILD_QNX}" = "ON" ]
+then
+    TOOLCHAIN_FILE=${TOP_PATH}/cmake/qnx.cmake
+fi
+cmake -DCMAKE_TOOLCHAIN_FILE=${TOOLCHAIN_FILE} ../../TestSuit
 cmake --build . --config ${BUILD_TYPE}
 cd ../..
 

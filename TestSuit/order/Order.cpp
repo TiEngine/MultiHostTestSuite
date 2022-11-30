@@ -45,6 +45,7 @@ int main(int argc, char* argv[])
     configs["workers"] = "1";   // default worker count: 1
     configs["timeout"] = "300"; // default timeout: 300s
     configs["command"] = "";
+    configs["commandType"] = "exe";
     configs["output"] = "";
     configs["group"] = ":";
     configs["env"] = "";
@@ -53,6 +54,7 @@ int main(int argc, char* argv[])
     std::vector<std::string> commands;
     std::vector<std::string> groups;
     std::vector<std::string> envs;
+    std::vector<std::string> commandTypes;
     std::vector<int> timeouts;
     std::vector<int> delays;
     bool isQuiet = true;
@@ -65,10 +67,14 @@ int main(int argc, char* argv[])
         configs[key] = value;
         if(key == "command"){
             commands.push_back(configs[key]);
+            commandTypes.push_back("exe");
             groups.push_back(" ");
             envs.push_back("");
             timeouts.push_back(300);
             delays.push_back(0);
+        }
+        else if (key == "commandType") {
+            commandTypes[commandTypes.size() - 1] = configs[key];
         }
         else if(key == "group"){
             groups[groups.size() - 1] = configs[key];
@@ -166,7 +172,7 @@ int main(int argc, char* argv[])
         if (groups[ind] == "all") {
             groupName = std::string(":");
         }
-        if (rpc.CallFunc("Task", commands[ind], groupName, envs[ind], 
+        if (rpc.CallFunc("Task", commands[ind], commandTypes[ind], groupName, envs[ind], 
             delays[ind], timeouts[ind]) != tirpc::rpc::RpcCallError::Success) {
             std::cout << "CallFunc Task failed!" << std::endl;
         }
