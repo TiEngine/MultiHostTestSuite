@@ -24,7 +24,7 @@ void SignalHandler(int signum)
 
 class Maner {
 public:
-    void Outp(const std::string& log)
+    void Outp(std::string workerGroup, const std::string& log)
     {
         std::lock_guard<std::mutex> locker(mutex);
         logs.emplace_back(log);

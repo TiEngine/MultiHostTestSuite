@@ -32,9 +32,10 @@ void SignalHandler(int signum)
 
 class Worker {
 public:
-    void Outp(const std::string& log)
+    void Outp(std::string workerGroup, const std::string& log)
     {
         // Worker does not care about logs.
+        (void)workerGroup;
         (void)log;
     }
 
@@ -289,7 +290,7 @@ int main(int argc, char* argv[])
                 }
             }
 
-            if (rpc.CallFunc("Outp", log.str()) !=
+            if (rpc.CallFunc("Outp", commands["group"], log.str()) !=
                 tirpc::rpc::RpcCallError::Success) {
                 std::cout<<"CallFunc Outp failed!" << std::endl;
             }

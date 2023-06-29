@@ -137,9 +137,14 @@ order修改timeout配置项含义，具体见简介。
 ## V1.4——ChangeLog
 
 - bug fix
-  - maner调试功能`:`有问题。
+  - maner调试功能有问题。
 - features
   - order增加配置项commandType，实现执行命令行，具体见简介。
 
 `实现order下发cmd类型的指令`
+
+## V1.5——ChangeLog
+
+- bug fix
+  - 当有两个order同时执行指令时，一个order正常结束会导致另外一个order也结束。
 

@@ -19,13 +19,17 @@ void SignalHandler(int signum)
 
 class Order {
 public:
-    void Outp(const std::string& log)
+    void Outp(std::string workerGroup, const std::string& log)
     {
         std::lock_guard<std::mutex> locker(mutex);
-        logs.emplace_back(log);
+        if (logs.find(workerGroup) != logs.end()) {
+            logs[workerGroup].emplace_back(log);
+        } else {
+            logs[workerGroup] = std::vector<std::string>{log};
+        }
     }
 
-    void SwapLogs(std::vector<std::string>& out)
+    void SwapLogs(std::unordered_map<std::string, std::vector<std::string>>& out)
     {
         std::lock_guard<std::mutex> locker(mutex);
         out.swap(logs);
@@ -33,7 +37,7 @@ public:
 
 private:
     std::mutex mutex; // for logs
-    std::vector<std::string> logs;
+    std::unordered_map<std::string, std::vector<std::string>> logs;
 } g_order;
 
 int main(int argc, char* argv[])
@@ -179,24 +183,29 @@ int main(int argc, char* argv[])
     }
 
     while (g_loop) {
-        std::vector<std::string> logs;
+        std::unordered_map<std::string, std::vector<std::string>> logs;
         g_order.SwapLogs(logs);
         if (logs.size() > 0) {
-            for (const auto& log : logs) {
-                std::stringstream ss;
-                ss << "===== [RECEIVE RESULT] =====" << std::endl
-                    <<               log              << std::endl
-                    << "----------------------------" << std::endl
-                    << std::endl; // Add one more split line.
-                if (!isQuiet) {
-                    std::cout << ss.str();
-                }
-                ofs << std::endl << log;
+            // Only read logs belong to current groups
+            for (const auto& group: groups) {
+                if (logs.find(group) != logs.end()) {
+                    for (const auto& log: logs[group]) {
+                        std::stringstream ss;
+                        ss << "===== [RECEIVE RESULT] =====" << std::endl
+                            <<               log      << std::endl
+                            << "----------------------------" << std::endl
+                            << std::endl; // Add one more split line.
+                        if (!isQuiet) {
+                            std::cout << ss.str();
+                        }
+                        ofs << std::endl << log;
 
-                worker_count++;
-                std::cout << "worker_count = " << worker_count << std::endl;
-                if(worker_count == workers) {
-                    g_loop = false;
+                        worker_count++;
+                        std::cout << "worker_count = " << worker_count << std::endl;
+                        if(worker_count == workers) {
+                            g_loop = false;
+                        }
+                    }
                 }
             }
         } else {
