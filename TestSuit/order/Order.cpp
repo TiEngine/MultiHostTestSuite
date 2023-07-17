@@ -78,18 +78,38 @@ int main(int argc, char* argv[])
             delays.push_back(0);
         }
         else if (key == "commandType") {
+            if (commandTypes.size() == 0) {
+                std::cout << "Please pass command firstly and pass commandType secondly!" << std::endl;
+                return 1;
+            }
             commandTypes[commandTypes.size() - 1] = configs[key];
         }
-        else if(key == "group"){
+        else if (key == "group") {
+            if (groups.size() == 0) {
+                std::cout << "Please pass command firstly and pass group secondly!" << std::endl;
+                return 1;
+            }
             groups[groups.size() - 1] = configs[key];
         }
-        else if(key == "env"){
+        else if (key == "env") {
+            if (envs.size() == 0) {
+                std::cout << "Please pass command firstly and pass env secondly!" << std::endl;
+                return 1;
+            }
             envs[envs.size() - 1] = configs[key];
         }
         else if (key == "timeout") {
+            if (timeouts.size() == 0) {
+                std::cout << "Please pass command firstly and pass timeout secondly!" << std::endl;
+                return 1;
+            }
             timeouts[timeouts.size() - 1] = std::stoi(configs[key]);
         }
         else if (key == "delay") {
+            if (delays.size() == 0) {
+                std::cout << "Please pass command firstly and pass delay secondly!" << std::endl;
+                return 1;
+            }
             delays[delays.size() - 1] = std::stoi(configs[key]);
         }
     }

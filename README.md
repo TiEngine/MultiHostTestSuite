@@ -43,6 +43,8 @@ order用于向worker下发指令，等待所有的worker执行完成并返回结
 * output: 存放所有worker执行结果的log文件。默认output.log。若指定output，则使用**安静模式**，不在控制台打印执行结果；否则将在控制台打印执行结果，且将结果保存在默认文件output.log中。
 * workers: 执行指令的worker数量，该参数用于控制order在收到指定workers数量的结果才退出。默认1。
 
+注意事项：需要先写command选项，再写其他选项，否则将会报错。
+
 ## 使用场景举例
 
 一个简单的场景：获取两台设备上的文件系统使用情况 ` df -h`。
@@ -100,8 +102,6 @@ source /home/dds-qnx/qnx710/qnxsdp-env.sh
 bash ./build.sh ON linux Release aarch64
 ```
 
-
-
 ## V1.0——ChangeLog
 
 实现测试套件。`7ec6ba7435cdaf057a673bd263b2941ffb13ca38`
@@ -137,7 +137,7 @@ order修改timeout配置项含义，具体见简介。
 ## V1.4——ChangeLog
 
 - bug fix
-  - maner调试功能有问题。
+  - maner调试功能`:`有问题。
 - features
   - order增加配置项commandType，实现执行命令行，具体见简介。
 
