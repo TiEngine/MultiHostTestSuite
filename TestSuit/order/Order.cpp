@@ -188,22 +188,29 @@ int main(int argc, char* argv[])
         if (logs.size() > 0) {
             // Only read logs belong to current groups
             for (const auto& group: groups) {
-                if (logs.find(group) != logs.end()) {
-                    for (const auto& log: logs[group]) {
-                        std::stringstream ss;
-                        ss << "===== [RECEIVE RESULT] =====" << std::endl
-                            <<               log      << std::endl
-                            << "----------------------------" << std::endl
-                            << std::endl; // Add one more split line.
-                        if (!isQuiet) {
-                            std::cout << ss.str();
-                        }
-                        ofs << std::endl << log;
+                if (group == "all" || logs.find(group) != logs.end()) {
+                    std::unordered_map<std::string, std::vector<std::string>> logsCopy = logs;
+                    if (group != "all") {
+                        logs.clear();
+                        logs[group] = logsCopy[group];
+                    }
+                    for (const auto& groupLog: logs) {
+                        for (const auto& log: groupLog.second){
+                            std::stringstream ss;
+                            ss << "===== [RECEIVE RESULT] =====" << std::endl
+                                <<               log      << std::endl
+                                << "----------------------------" << std::endl
+                                << std::endl; // Add one more split line.
+                            if (!isQuiet) {
+                                std::cout << ss.str();
+                            }
+                            ofs << std::endl << log;
 
-                        worker_count++;
-                        std::cout << "worker_count = " << worker_count << std::endl;
-                        if(worker_count == workers) {
-                            g_loop = false;
+                            worker_count++;
+                            std::cout << "worker_count = " << worker_count << std::endl;
+                            if(worker_count == workers) {
+                                g_loop = false;
+                            }
                         }
                     }
                 }
